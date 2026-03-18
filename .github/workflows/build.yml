@@ -20,9 +20,7 @@ jobs:
 
       - name: Install Gradle
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
-          unzip -q gradle-8.2-bin.zip -d /opt/gradle
-          echo "PATH=/opt/gradle/gradle-8.2/bin:$PATH" >> $GITHUB_ENV
+          wget --no-check-certificate -q "https://github.com/2dust/AndroidLibV2rayLite/releases/latest/download/libv2ray.aar" -O app/libs/libv2ray.aar || wget --no-check-certificate -q "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-android-arm64-v8a.zip" -O app/libs/xray.zip
 
       - name: Download libv2ray
         run: |
