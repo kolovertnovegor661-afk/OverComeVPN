@@ -20,12 +20,15 @@ jobs:
 
       - name: Install Gradle
         run: |
-          wget --no-check-certificate -q "https://github.com/2dust/AndroidLibV2rayLite/releases/latest/download/libv2ray.aar" -O app/libs/libv2ray.aar || wget --no-check-certificate -q "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-android-arm64-v8a.zip" -O app/libs/xray.zip
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip -d /opt/gradle
+          echo "PATH=/opt/gradle/gradle-8.2/bin:$PATH" >> $GITHUB_ENV
 
       - name: Download libv2ray
         run: |
           mkdir -p app/libs
-          wget -q "https://github.com/2dust/v2rayNG/releases/download/1.8.19/libv2ray.aar" -O app/libs/libv2ray.aar
+          curl -L "https://github.com/2dust/AndroidLibV2rayLite/releases/download/1.0.0/libv2ray.aar" -o app/libs/libv2ray.aar
+          ls -la app/libs/
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
