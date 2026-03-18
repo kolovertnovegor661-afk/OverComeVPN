@@ -22,13 +22,17 @@ jobs:
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip -d /opt/gradle
-          export PATH=/opt/gradle/gradle-8.2/bin:$PATH
           echo "PATH=/opt/gradle/gradle-8.2/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Download libv2ray
+        run: |
+          mkdir -p app/libs
+          wget -q "https://github.com/2dust/v2rayNG/releases/download/1.8.19/libv2ray.aar" -O app/libs/libv2ray.aar
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build APK
+      - name: Build Debug APK
         run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
