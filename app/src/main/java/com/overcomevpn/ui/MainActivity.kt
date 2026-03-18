@@ -9,6 +9,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.overcomevpn.R
 import com.overcomevpn.core.ConfigParser
+import com.overcomevpn.core.OvercomeVpnService
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,7 +21,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPaste: ImageButton
 
     private val VPN_REQUEST_CODE = 1001
-    private var isConnected = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,8 +51,15 @@ class MainActivity : AppCompatActivity() {
         })
 
         btnConnect.setOnClickListener {
-            if (isConnected) disconnect() else connect()
+            if (OvercomeVpnService.isRunning) disconnect() else connect()
         }
+
+        updateUI()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateUI()
     }
 
     private fun detectProtocol(key: String) {
@@ -71,37 +79,92 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Вставьте VPN ключ", Toast.LENGTH_SHORT).show()
             return
         }
-        if (ConfigParser.parse(key) == null) {
+        val config = ConfigParser.parse(key)
+        if (config == null) {
             Toast.makeText(this, "Неверный формат ключа", Toast.LENGTH_SHORT).show()
             return
         }
         val intent = VpnService.prepare(this)
         if (intent != null) startActivityForResult(intent, VPN_REQUEST_CODE)
-        else startVpn()
+        else startVpnService(key)
     }
 
-    private fun startVpn() {
-        isConnected = true
-        btnConnect.text = "ОТКЛЮЧИТЬ"
-        btnConnect.backgroundTintList = androidx.core.content.res.ResourcesCompat.getColorStateList(resources, R.color.red, null)
-        tvStatus.text = "● Подключено"
-        tvStatus.setTextColor(ContextCompat.getColor(this, R.color.green))
-        Toast.makeText(this, "Подключено!", Toast.LENGTH_SHORT).show()
+    private fun startVpnService(key: String) {
+        val config = ConfigParser.parse(key) ?: return
+        val v2rayConfig = buildV2RayConfig(config)
+
+        val intent = Intent(this, OvercomeVpnService::class.java)
+        intent.putExtra("vpn_config", v2rayConfig)
+        startService(intent)
+        updateUI()
+    }
+
+    private fun buildV2RayConfig(config: com.overcomevpn.core.VpnConfig): String {
+        return JSONObject().apply {
+            put("log", JSONObject().put("loglevel", "warning"))
+            put("inbounds", org.json.JSONArray().apply {
+                put(JSONObject().apply {
+                    put("port", 10808)
+                    put("protocol", "socks")
+                    put("settings", JSONObject().apply {
+                        put("auth", "noauth")
+                        put("udp", true)
+                    })
+                })
+            })
+            put("outbounds", org.json.JSONArray().apply {
+                put(JSONObject().apply {
+                    put("protocol", config.protocol)
+                    put("settings", JSONObject().apply {
+                        put("vnext", org.json.JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("address", config.address)
+                                put("port", config.port)
+                                put("users", org.json.JSONArray().apply {
+                                    put(JSONObject().apply {
+                                        put("id", config.uuid)
+                                        put("encryption", "none")
+                                    })
+                                })
+                            })
+                        })
+                    })
+                    put("streamSettings", JSONObject().apply {
+                        put("network", config.network)
+                        put("security", config.tls)
+                    })
+                })
+            })
+        }.toString()
     }
 
     private fun disconnect() {
-        isConnected = false
-        btnConnect.text = "ПОДКЛЮЧИТЬ"
-        btnConnect.backgroundTintList = androidx.core.content.res.ResourcesCompat.getColorStateList(resources, R.color.blue, null)
-        tvStatus.text = "● Отключено"
-        tvStatus.setTextColor(ContextCompat.getColor(this, R.color.red))
+        val intent = Intent(this, OvercomeVpnService::class.java)
+        stopService(intent)
+        updateUI()
         Toast.makeText(this, "Отключено", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateUI() {
+        if (OvercomeVpnService.isRunning) {
+            btnConnect.text = "ОТКЛЮЧИТЬ"
+            btnConnect.backgroundTintList = androidx.core.content.res.ResourcesCompat
+                .getColorStateList(resources, R.color.red, null)
+            tvStatus.text = "● Подключено"
+            tvStatus.setTextColor(ContextCompat.getColor(this, R.color.green))
+        } else {
+            btnConnect.text = "ПОДКЛЮЧИТЬ"
+            btnConnect.backgroundTintList = androidx.core.content.res.ResourcesCompat
+                .getColorStateList(resources, R.color.blue, null)
+            tvStatus.text = "● Отключено"
+            tvStatus.setTextColor(ContextCompat.getColor(this, R.color.red))
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == VPN_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
-            startVpn()
+            startVpnService(etKey.text.toString().trim())
         }
     }
 }
